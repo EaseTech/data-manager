@@ -53,6 +53,8 @@ import org.reflections.Reflections;
 public class JPAToXSD {
 
     private static final String COLUMN_NAME = "columnName";
+    
+    private static final String ELEMENT_NAME = "elementName";
 
     private static final String COLUMN_TYPE = "columnType";
 
@@ -99,6 +101,7 @@ public class JPAToXSD {
             xsdFile.delete();
         }
         try {
+            
             xsdFile.createNewFile();
         } catch (IOException e) {
             // TODO Auto-generated catch block
@@ -205,9 +208,9 @@ public class JPAToXSD {
         if (tableAnnotation != null) {
             String tableName = tableAnnotation.name();
             tableNameAttribute = XSDUtil.getAttribute(TABLE_NAME, new QName("xsd:string"), UseValues.OPTIONAL,
-                tableName);
+                tableName, null);
         }
-        Attribute recordIdAttribute = XSDUtil.getAttribute(RECORD_ID, new QName("xsd:ID"), UseValues.REQUIRED, null);
+        Attribute recordIdAttribute = XSDUtil.getAttribute(RECORD_ID, new QName("xsd:ID"), UseValues.REQUIRED, null, null);
         XSDUtil.addAttributesToComplexType(rootNode, tableNameAttribute, recordIdAttribute);
         schema.getComplexType().add(rootNode);
     }
@@ -215,7 +218,6 @@ public class JPAToXSD {
     private static void addDocumentNode(Schema schema, Class<?> jpaClass) {
         schema.getElement().add(XSDUtil.generateElement(jpaClass.getSimpleName().concat("List"), null));
         Element element = XSDUtil.generateElement(jpaClass.getSimpleName(), jpaClass.getSimpleName(), "1", "unbounded");
-
         ComplexType rootComplexType = XSDUtil.generateComplexType(jpaClass.getSimpleName().concat("List"), element);
         schema.getComplexType().add(rootComplexType);
     }
@@ -323,9 +325,9 @@ public class JPAToXSD {
             }
             element.setMaxOccurs("1");
             Attribute pathAttribute = XSDUtil.getAttribute("filePath", new QName("xsd:string"), UseValues.REQUIRED,
-                null);
+                null, field.getName());
             Attribute idAttribute = XSDUtil.getAttribute("recordIdRef", new QName("xsd:IDREF"), UseValues.REQUIRED,
-                null);
+                null, field.getName());
             XSDUtil.addAttributesToElement(element, pathAttribute, idAttribute);
 
         }
@@ -361,12 +363,12 @@ public class JPAToXSD {
             }
             element.setMaxOccurs("1");
             Attribute pathAttribute = XSDUtil.getAttribute("filePath", new QName("xsd:string"), UseValues.REQUIRED,
-                null);
+                null, field.getName());
             Attribute idAttribute = XSDUtil.getAttribute("recordIdRef", new QName("xsd:IDREF"), UseValues.REQUIRED,
-                null);
+                null, field.getName());
             Attribute columnNameAttribute = XSDUtil.getAttribute(COLUMN_NAME, new QName("xsd:string"),
-                UseValues.OPTIONAL, columnName);
-            Attribute columnTypeAttribute = XSDUtil.getAttribute(COLUMN_TYPE, new QName("xsd:string"), null, type);
+                UseValues.OPTIONAL, columnName, field.getName());
+            Attribute columnTypeAttribute = XSDUtil.getAttribute(COLUMN_TYPE, new QName("xsd:string"), null, type, field.getName());
             esc.getAttribute().add(columnNameAttribute);
             esc.getAttribute().add(idAttribute);
             esc.getAttribute().add(pathAttribute);
@@ -399,16 +401,16 @@ public class JPAToXSD {
             element.setMinOccurs(new BigInteger("0"));
             element.setMaxOccurs("1");
             Attribute globalPathAttribute = XSDUtil.getAttribute("globalFilePath", new QName("xsd:string"),
-                UseValues.OPTIONAL, null);
+                UseValues.OPTIONAL, null , field.getName());
 
             Element oneToManyElement = new Element();
             oneToManyElement.setName("value");
             oneToManyElement.setMinOccurs(new BigInteger("1"));
             oneToManyElement.setMaxOccurs("unbounded");
             Attribute pathAttribute = XSDUtil.getAttribute("filePath", new QName("xsd:string"), UseValues.OPTIONAL,
-                null);
+                null, field.getName());
             Attribute idAttribute = XSDUtil.getAttribute("recordIdRef", new QName("xsd:IDREF"), UseValues.REQUIRED,
-                null);
+                null, field.getName());
             XSDUtil.addAttributesToElement(oneToManyElement, pathAttribute, idAttribute);
             ComplexType oneToManyComplexType = XSDUtil.generateComplexType((String) null, oneToManyElement);
             element.setComplexType(oneToManyComplexType);
@@ -418,21 +420,21 @@ public class JPAToXSD {
         return element;
     }
 
-    private static void addAttributes(Element element, Field field) {
-        ComplexType complexType = new ComplexType();
-        element.setComplexType(complexType);
-
-        Column column = field.getAnnotation(Column.class);
-        if (column != null) {
-            complexType.getAttribute().add(addColumnNameAttribute(field, column));
-            complexType.getAttribute().add(addIsNullAttribute(field, column));
-            complexType.getAttribute().add(addLengthAttribute(field, column));
-        }
-        if (field.getAnnotation(Id.class) != null) {
-            complexType.getAttribute().add(
-                XSDUtil.getAttribute(ID_COLUMN, new QName("xsd:boolean"), null, String.valueOf(true)));
-        }
-    }
+//    private static void addAttributes(Element element, Field field) {
+//        ComplexType complexType = new ComplexType();
+//        element.setComplexType(complexType);
+//
+//        Column column = field.getAnnotation(Column.class);
+//        if (column != null) {
+//            complexType.getAttribute().add(addColumnNameAttribute(field, column));
+//            complexType.getAttribute().add(addIsNullAttribute(field, column));
+//            complexType.getAttribute().add(addLengthAttribute(field, column));
+//        }
+//        if (field.getAnnotation(Id.class) != null) {
+//            complexType.getAttribute().add(
+//                XSDUtil.getAttribute(ID_COLUMN, new QName("xsd:boolean"), null, String.valueOf(true)));
+//        }
+//    }
 
     private static void addAttributes(ExtensionSimpleContent esc, Field field) {
 
@@ -445,7 +447,7 @@ public class JPAToXSD {
         }
         if (field.getAnnotation(Id.class) != null) {
             esc.getAttribute().add(
-                XSDUtil.getAttribute(ID_COLUMN, new QName("xsd:boolean"), null, String.valueOf(true)));
+                XSDUtil.getAttribute(ID_COLUMN, new QName("xsd:boolean"), null, String.valueOf(true), field.getName()));
         }
     }
 
@@ -454,20 +456,20 @@ public class JPAToXSD {
         if (type == null) {
             type = "xsd:enum";
         }
-        return XSDUtil.getAttribute(COLUMN_TYPE, new QName("xsd:string"), null, type);
+        return XSDUtil.getAttribute(COLUMN_TYPE, new QName("xsd:string"), null, type, field.getName() );
     }
 
     private static Attribute addColumnNameAttribute(Field field, Column column) {
         String columnValue = column.name() == "" ? field.getName() : column.name();
-        return XSDUtil.getAttribute(COLUMN_NAME, new QName("xsd:string"), null, columnValue);
+        return XSDUtil.getAttribute(COLUMN_NAME, new QName("xsd:string"), null, columnValue, field.getName());
     }
 
     private static Attribute addIsNullAttribute(Field field, Column column) {
-        return XSDUtil.getAttribute(IS_NULLABLE, new QName("xsd:boolean"), null, String.valueOf(column.nullable()));
+        return XSDUtil.getAttribute(IS_NULLABLE, new QName("xsd:boolean"), null, String.valueOf(column.nullable()), field.getName());
     }
 
     private static Attribute addLengthAttribute(Field field, Column column) {
-        return XSDUtil.getAttribute(LENGTH, new QName("xsd:int"), null, String.valueOf(column.length()));
+        return XSDUtil.getAttribute(LENGTH, new QName("xsd:int"), null, String.valueOf(column.length()), field.getName());
     }
 
     private static String getType(Field field) {
