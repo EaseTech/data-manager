@@ -29,7 +29,12 @@ public class XSDParser {
             DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
             DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
             ResourceLoaderStrategy rls = new ResourceLoaderStrategy();
-            Resource xsdResource = rls.getResource(xsdFileName.trim());
+            Resource xsdResource;
+            try {
+                xsdResource = rls.getResource(xsdFileName.trim());
+            } catch (Error e) {
+                xsdResource = rls.getResource("xsd/".concat(xsdFileName.trim()));
+            }
             
             Document doc = docBuilder.parse (xsdResource.getFile()); 
             NodeList childNodes = doc.getChildNodes();

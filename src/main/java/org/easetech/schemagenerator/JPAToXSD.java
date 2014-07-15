@@ -53,8 +53,6 @@ import org.reflections.Reflections;
 public class JPAToXSD {
 
     private static final String COLUMN_NAME = "columnName";
-    
-    private static final String ELEMENT_NAME = "elementName";
 
     private static final String COLUMN_TYPE = "columnType";
 
@@ -192,9 +190,24 @@ public class JPAToXSD {
         List<Element> elements = new ArrayList<Element>();
         for (Field field : jpaFields) {
             field.setAccessible(true);
-            Element createdElement = createElement(field, schema);
+            Element createdElement = null;
+            Element[] createdElements = null;
+            if(field.getAnnotation(Id.class) != null && field.getAnnotation(Column.class) == null) {
+                Class<?> idClass = field.getType();
+                createdElements = createElements(idClass.getDeclaredFields(), schema);
+            }
+            else {
+                createdElement = createElement(field, schema);
+            } 
+            
             if (createdElement != null) {
                 elements.add(createdElement);
+            }
+            if(createdElements != null && createdElements.length > 0) {
+                for(int i=0 ; i< createdElements.length ; i++) {
+                    elements.add(createdElements[i]);
+                }
+                
             }
 
         }
@@ -241,7 +254,7 @@ public class JPAToXSD {
                 addAttributes(esc, field);
             }
 
-        }
+        } 
         return element;
     }
 
@@ -314,6 +327,9 @@ public class JPAToXSD {
     private static Element handleOneToOne(Field field) {
         Element element = null;
         if (field.isAnnotationPresent(OneToOne.class)) {
+            if(field.isAnnotationPresent(JoinColumn.class) && !field.getAnnotation(JoinColumn.class).insertable()) {
+                return element;
+            }
             OneToOne oneToOneAnnotation = field.getAnnotation(OneToOne.class);
             Boolean isOptional = oneToOneAnnotation.optional();
             element = new Element();
@@ -337,6 +353,9 @@ public class JPAToXSD {
     private static Element handleManyToOne(Field field) {
         Element element = null;
         if (field.isAnnotationPresent(ManyToOne.class)) {
+            if(field.isAnnotationPresent(JoinColumn.class) && !field.getAnnotation(JoinColumn.class).insertable()) {
+                return element;
+            }
             element = getElementInstance(field);
             ManyToOne manyToOneAnnotation = field.getAnnotation(ManyToOne.class);
             JoinColumn joinCol = field.getAnnotation(JoinColumn.class);
@@ -396,25 +415,30 @@ public class JPAToXSD {
     private static Element handleAnyToMany(Field field) {
         Element element = null;
         if (field.isAnnotationPresent(OneToMany.class) || field.isAnnotationPresent(ManyToMany.class)) {
-            element = new Element();
-            element.setName(field.getName());
-            element.setMinOccurs(new BigInteger("0"));
-            element.setMaxOccurs("1");
-            Attribute globalPathAttribute = XSDUtil.getAttribute("globalFilePath", new QName("xsd:string"),
-                UseValues.OPTIONAL, null , field.getName());
+            if(field.isAnnotationPresent(JoinColumn.class) && !field.getAnnotation(JoinColumn.class).insertable()) {
+                return element;
+            }
+                element = new Element();
+                element.setName(field.getName());
+                element.setMinOccurs(new BigInteger("0"));
+                element.setMaxOccurs("1");
+                Attribute globalPathAttribute = XSDUtil.getAttribute("globalFilePath", new QName("xsd:string"),
+                    UseValues.OPTIONAL, null , field.getName());
 
-            Element oneToManyElement = new Element();
-            oneToManyElement.setName("value");
-            oneToManyElement.setMinOccurs(new BigInteger("1"));
-            oneToManyElement.setMaxOccurs("unbounded");
-            Attribute pathAttribute = XSDUtil.getAttribute("filePath", new QName("xsd:string"), UseValues.OPTIONAL,
-                null, field.getName());
-            Attribute idAttribute = XSDUtil.getAttribute("recordIdRef", new QName("xsd:IDREF"), UseValues.REQUIRED,
-                null, field.getName());
-            XSDUtil.addAttributesToElement(oneToManyElement, pathAttribute, idAttribute);
-            ComplexType oneToManyComplexType = XSDUtil.generateComplexType((String) null, oneToManyElement);
-            element.setComplexType(oneToManyComplexType);
-            XSDUtil.addAttributesToElement(element, globalPathAttribute);
+                Element oneToManyElement = new Element();
+                oneToManyElement.setName("value");
+                oneToManyElement.setMinOccurs(new BigInteger("1"));
+                oneToManyElement.setMaxOccurs("unbounded");
+                Attribute pathAttribute = XSDUtil.getAttribute("filePath", new QName("xsd:string"), UseValues.OPTIONAL,
+                    null, field.getName());
+                Attribute idAttribute = XSDUtil.getAttribute("recordIdRef", new QName("xsd:IDREF"), UseValues.REQUIRED,
+                    null, field.getName());
+                XSDUtil.addAttributesToElement(oneToManyElement, idAttribute, pathAttribute);
+                ComplexType oneToManyComplexType = XSDUtil.generateComplexType((String) null, oneToManyElement);
+                element.setComplexType(oneToManyComplexType);
+                XSDUtil.addAttributesToElement(element, globalPathAttribute); 
+            
+            
 
         }
         return element;
@@ -444,11 +468,20 @@ public class JPAToXSD {
             esc.getAttribute().add(addIsNullAttribute(field, column));
             esc.getAttribute().add(addLengthAttribute(field, column));
             esc.getAttribute().add(addTypeAttribute(field, column));
+            if (field.getAnnotation(Id.class) != null) {
+                esc.getAttribute().add(
+                    XSDUtil.getAttribute(ID_COLUMN, new QName("xsd:boolean"), null, String.valueOf(true), field.getName()));
+            }
+        } else {
+            if(field.getAnnotation(Id.class) != null) {
+                Class<?> idClass = field.getType();
+                Field[] idFields = idClass.getDeclaredFields();
+                for(Field idField : idFields) {
+                    addAttributes(esc, idField);
+                }
+            }
         }
-        if (field.getAnnotation(Id.class) != null) {
-            esc.getAttribute().add(
-                XSDUtil.getAttribute(ID_COLUMN, new QName("xsd:boolean"), null, String.valueOf(true), field.getName()));
-        }
+        
     }
 
     private static Attribute addTypeAttribute(Field field, Column column) {

@@ -1,5 +1,7 @@
 package org.easetech.schemagenerator;
 
+import java.io.FileOutputStream;
+
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -114,15 +116,23 @@ public class XMLtoSQLTransformer {
         }
         
         OutputStream sqlOutputStream = null;
-        Resource sqlResource = rls.getResource(path);
-        if(sqlResource.exists()) {
-            sqlOutputStream = sqlResource.getOutputStream();
+        
+        try {
+            Resource sqlResource = rls.getResource(path);
+            if(sqlResource.exists()) {
+                sqlOutputStream = sqlResource.getOutputStream();
+            }
+        } catch (Error e) {
+            //do nothing
         }
-        File sqlFile = new File(path);
-        if (!sqlFile.exists()) {
-            sqlFile.createNewFile();
-            
+        if(sqlOutputStream == null) {
+            File sqlFile = new File(path);
+            if (!sqlFile.exists()) {
+                sqlFile.createNewFile();               
+            }
+            sqlOutputStream = new FileOutputStream(sqlFile);
         }
+        
         transform(xmlInputStream, xmlFilePath, sqlOutputStream);
         
     }
@@ -206,6 +216,7 @@ public class XMLtoSQLTransformer {
         try {
             parser.parse(xmlSchemaLocation);
             insertQuery = insertQuery.replace("{table_name}", parser.getTableName());
+            insertQuery = insertQuery.replace(", )", " )");
             String queryWithoutInsert = insertQuery.replace("INSERT INTO ".concat(parser.getTableName()), "");
             int beginIndex = queryWithoutInsert.indexOf(")");
             columnNames = queryWithoutInsert.substring(0, beginIndex).replace("(", "").replace(")", "");

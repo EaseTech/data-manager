@@ -32,14 +32,20 @@
                 <xsl:value-of select="@columnName" />
             </xsl:when>
             <xsl:otherwise>
-                <xsl:text>{</xsl:text> <xsl:value-of select ="local-name()"/> <xsl:text>}</xsl:text>
+                <xsl:choose>
+                    <xsl:when test="@globalFilePath">
+                    </xsl:when>
+                    <xsl:otherwise>
+                        <xsl:text>{</xsl:text> <xsl:value-of select ="local-name()"/> <xsl:text>}</xsl:text>
+                        <xsl:text>, </xsl:text>
+                        
+                    </xsl:otherwise>
+                </xsl:choose>
+                
             </xsl:otherwise>
         </xsl:choose>
-     <xsl:if test="position()!=last()">
-      <xsl:text>, </xsl:text>
-     </xsl:if>
     </xsl:for-each>
-
+    
     <xsl:text>) values (</xsl:text>
     <!-- <xsl:for-each select="*[@columnName]"> -->
     <xsl:for-each select="*">
@@ -50,13 +56,22 @@
             <xsl:text>'</xsl:text>
      </xsl:when>
      <xsl:otherwise>
-        <xsl:value-of select="." />
+     <xsl:choose>
+                    <xsl:when test="@globalFilePath">
+                    </xsl:when>
+                    <xsl:otherwise>
+                         <xsl:value-of select="." />
+                        <xsl:text>, </xsl:text>
+                        
+                    </xsl:otherwise>
+                </xsl:choose>
+       
      </xsl:otherwise>
     </xsl:choose>
     
-     <xsl:if test="position()!=last()">
+     <!-- <xsl:if test="position()!=last()">
       <xsl:text>, </xsl:text>
-     </xsl:if>
+     </xsl:if> -->
     </xsl:for-each>
     <xsl:text>)</xsl:text>
     <!-- Start a new line -->
@@ -65,6 +80,7 @@
      <xsl:variable name="globalFilePath">
       <xsl:value-of select="@globalFilePath" />
      </xsl:variable>
+     <xsl:variable name="filePath">
      <xsl:text>FILE Path=</xsl:text>
      <xsl:choose>
       <xsl:when test="string-length($globalFilePath) > 0">
@@ -75,7 +91,12 @@
       </xsl:otherwise>
      </xsl:choose>
      <xsl:text>&amp;RECORDID=</xsl:text>
-     <xsl:value-of select="./value/@recordIdRef" />
+     </xsl:variable>
+     <xsl:for-each select="./value">
+     <xsl:value-of select="$filePath" />
+     <xsl:value-of select="@recordIdRef" />
+     <xsl:text>&#10;</xsl:text>
+     </xsl:for-each>
      <xsl:text>&#10;</xsl:text>
      
     </xsl:for-each>
